@@ -106,6 +106,9 @@ document.querySelector('#scanButton').addEventListener('click', async event => {
 async function sendImageToGemini(blob) {
   const endpoint = String(window.APPS_SCRIPT_URL || '').trim();
   if (!endpoint) throw new Error('Apps Script bağlantısı tanımlı değil.');
+  const status = await jsonp(`${endpoint}?action=health`);
+  if (!status || Number(status.version || 0) < 3) throw new Error('Apps Script eski sürümde. Güncel Code.gs kodunu yeni sürüm olarak dağıtın.');
+  if (!status.geminiConfigured) throw new Error('GEMINI_API_KEY, Apps Script proje özelliklerinde bulunamadı.');
   const base64 = await blobToBase64(blob);
   const requestId = `ocr_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   return new Promise((resolve, reject) => {
@@ -118,7 +121,7 @@ async function sendImageToGemini(blob) {
       const input = document.createElement('input'); input.name = name; input.value = value; form.appendChild(input);
     });
     const cleanup = () => { window.removeEventListener('message', onMessage); iframe.remove(); form.remove(); };
-    const timer = setTimeout(() => { cleanup(); reject(new Error('Kart okuma zaman aşımına uğradı.')); }, 45000);
+    const timer = setTimeout(() => { cleanup(); reject(new Error('Gemini 90 saniye içinde yanıt vermedi. Apps Script çalıştırma kayıtlarını kontrol edin.')); }, 90000);
     const onMessage = event => {
       if (!event.data || event.data.source !== 'cardbase-gemini' || event.data.requestId !== requestId) return;
       clearTimeout(timer); cleanup();

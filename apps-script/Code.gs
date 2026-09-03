@@ -6,7 +6,7 @@ function doGet(e) {
     const action = String((e.parameter && e.parameter.action) || 'health');
     if (action === 'search') return jsonResponse({ results: searchCards(e.parameter.q || '') }, e.parameter.callback);
     if (action === 'read') return jsonResponse(readCard(e.parameter.id || ''), e.parameter.callback);
-    return jsonResponse({ ok: true, service: 'CardBase Apps Script' }, e.parameter && e.parameter.callback);
+    return jsonResponse({ ok: true, service: 'CardBase Apps Script', version: 3, geminiConfigured: Boolean(PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY')) }, e.parameter && e.parameter.callback);
   } catch (error) {
     return jsonResponse({ error: error.message }, e.parameter && e.parameter.callback);
   }
