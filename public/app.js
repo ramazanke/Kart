@@ -146,15 +146,41 @@ function extractBusinessCard(rawText) {
   const lines = text.split('\n').map(line => line.replace(/\s+/g, ' ').trim()).filter(Boolean);
   const email = (text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [''])[0];
   const website = (text.match(/(?:https?:\/\/|www\.)[^\s]+/i) || [''])[0].replace(/[),.;]+$/, '');
-  const phoneMatches = text.match(/(?:\+?90\s*)?(?:\(?0?5\d{2}\)?)[\s.-]*\d{3}[\s.-]*\d{2}[\s.-]*\d{2}/g) || [];
+  const phoneMatches = (text.match(/(?:\+|00)\d[\d\s().-]{7,}\d/g) || []).map(value => value.replace(/^[TMWF]:?\s*/i, '').trim());
   const ignored = new Set([email, website, ...phoneMatches].map(value => value.toLocaleLowerCase('tr-TR')));
   const candidates = lines.filter(line => ![...ignored].some(value => value && line.toLocaleLowerCase('tr-TR').includes(value)) && line.length > 2 && line.length < 70);
-  const titlePattern = /müdür|manager|director|başkan|uzman|specialist|engineer|mühendis|satış|sales|founder|kurucu|ceo|genel müdür/i;
+  const titlePattern = /müdür|manager|director|başkan|uzman|specialist|technologist|engineer|mühendis|satış|sales|purchasing|founder|kurucu|ceo|division/i;
   const companyPattern = /ltd|şti|a\.?ş|sanayi|ticaret|holding|group|grup|company|corp|inc|teknoloji|makina|inşaat/i;
   const title = candidates.find(line => titlePattern.test(line)) || '';
-  const companyName = candidates.find(line => companyPattern.test(line)) || candidates[0] || '';
-  const contactName = candidates.find(line => line !== companyName && line !== title && /^[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü.'-]+(?:\s+[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü.'-]+){1,3}$/.test(line)) || '';
-  return { companyName, contactName, title, phone: phoneMatches[0] || '', email, website, address: '', notes: `OCR metni:\n${text.trim()}` };
+  const namePattern = /^(?:[A-ZÇĞİÖŞÜ]{2,}[ .'-]*){2,4}$|^[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü.'-]+(?:\s+[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü.'-]+){1,3}$/;
+  const contactName = candidates.find(line => namePattern.test(line)) || '';
+  const emailDomain = email.split('@')[1]?.split('.')[0] || '';
+  const domainCompany = emailDomain && !/gmail|hotmail|outlook|yahoo|icloud/i.test(emailDomain)
+    ? emailDomain.replace(/[-_]+/g, ' ').replace(/\b\w/g, char => char.toUpperCase()) : '';
+  const companyName = candidates.find(line => line !== contactName && companyPattern.test(line)) || domainCompany;
+  const nameIndex = lines.indexOf(contactName);
+  const firstContactIndex = lines.findIndex(line => /(?:\+|00)\d|@|www\.|https?:/i.test(line));
+  const titleLines = nameIndex >= 0
+    ? lines.slice(nameIndex + 1, firstContactIndex > nameIndex ? firstContactIndex : nameIndex + 4).filter(line => titlePattern.test(line))
+    : [];
+  const addressLines = lines.filter(line => !line.includes(email) && !line.includes(website) &&
+    !phoneMatches.some(phone => line.includes(phone)) &&
+    /street|st\.|avenue|ave\.|road|rd\.|zone|israel|türkiye|turkey|istanbul|ankara|izmir|\b\d{5,7}\b/i.test(line));
+  return {
+    companyName,
+    contactName: toNameCase(contactName),
+    title: titleLines.join(' · ') || title,
+    phone: phoneMatches.join(' / '),
+    email,
+    website,
+    address: addressLines.join(', '),
+    notes: `OCR metni:\n${text.trim()}`
+  };
+}
+
+function toNameCase(value) {
+  if (!value || value !== value.toLocaleUpperCase('tr-TR')) return value;
+  return value.toLocaleLowerCase('tr-TR').replace(/(^|\s)[a-zçğıöşü]/g, char => char.toLocaleUpperCase('tr-TR'));
 }
 
 cardForm.addEventListener('submit', async event => {
