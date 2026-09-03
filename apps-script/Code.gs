@@ -49,7 +49,9 @@ function analyzeBusinessCard(base64Image, mimeType) {
 
 function iframeResponse(requestId, result, error) {
   const message = JSON.stringify({ source: 'cardbase-gemini', requestId: requestId, result: result, error: error || '' }).replace(/</g, '\\u003c');
-  return HtmlService.createHtmlOutput('<!doctype html><script>parent.postMessage(' + message + ', "*");<\/script>');
+  return HtmlService
+    .createHtmlOutput('<!doctype html><script>parent.postMessage(' + message + ', "*");<\/script>')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function getSheet() {
