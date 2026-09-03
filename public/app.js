@@ -93,12 +93,18 @@ document.querySelector('#scanButton').addEventListener('click', async event => {
   button.disabled = true; button.textContent = 'Okunuyor…';
   try {
     if (!window.Tesseract) throw new Error('OCR motoru yüklenemedi. İnternet bağlantınızı kontrol edin.');
+    button.textContent = 'Fotoğraf hazırlanıyor…';
+    const preparedImage = await prepareImageForOcr(selectedFile);
     const worker = await Tesseract.createWorker(['tur', 'eng'], 1, {
       logger: progress => {
         if (progress.status === 'recognizing text') button.textContent = `Okunuyor… %${Math.round((progress.progress || 0) * 100)}`;
       }
     });
-    const result = await worker.recognize(selectedFile);
+    await worker.setParameters({
+      tessedit_pageseg_mode: '6',
+      preserve_interword_spaces: '1'
+    });
+    const result = await worker.recognize(preparedImage);
     await worker.terminate();
     const parsed = extractBusinessCard(result.data.text || '');
     fillForm(parsed, 'Taramadan');
@@ -107,6 +113,33 @@ document.querySelector('#scanButton').addEventListener('click', async event => {
     notify(error.message, true);
   } finally { button.disabled = false; button.textContent = 'Bilgileri Oku'; }
 });
+
+function prepareImageForOcr(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    image.onload = () => {
+      const maxWidth = 1400;
+      const scale = Math.min(1, maxWidth / image.naturalWidth);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(image.naturalWidth * scale);
+      canvas.height = Math.round(image.naturalHeight * scale);
+      const context = canvas.getContext('2d', { willReadFrequently: true });
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      for (let index = 0; index < pixels.data.length; index += 4) {
+        const gray = pixels.data[index] * .299 + pixels.data[index + 1] * .587 + pixels.data[index + 2] * .114;
+        const contrasted = Math.max(0, Math.min(255, (gray - 128) * 1.45 + 128));
+        pixels.data[index] = pixels.data[index + 1] = pixels.data[index + 2] = contrasted;
+      }
+      context.putImageData(pixels, 0, 0);
+      URL.revokeObjectURL(objectUrl);
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Fotoğraf hazırlanamadı.')), 'image/jpeg', .9);
+    };
+    image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Fotoğraf açılamadı.')); };
+    image.src = objectUrl;
+  });
+}
 
 function extractBusinessCard(rawText) {
   const text = rawText.replace(/\r/g, '');
