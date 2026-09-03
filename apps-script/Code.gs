@@ -13,6 +13,14 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  if (e.parameter && e.parameter.action === 'ocr') {
+    try {
+      const result = analyzeBusinessCard(e.parameter.image || '', e.parameter.mimeType || 'image/jpeg');
+      return iframeResponse(e.parameter.requestId || '', result, '');
+    } catch (error) {
+      return iframeResponse(e.parameter.requestId || '', null, error.message);
+    }
+  }
   try {
     const payload = JSON.parse((e.postData && e.postData.contents) || '{}');
     if (payload.action === 'create') return jsonResponse(createCard(payload.card || {}));
@@ -21,6 +29,27 @@ function doPost(e) {
   } catch (error) {
     return jsonResponse({ error: error.message }, 400);
   }
+}
+
+function analyzeBusinessCard(base64Image, mimeType) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('GEMINI_API_KEY tanımlı değil.');
+  if (!base64Image) throw new Error('Kartvizit görseli alınamadı.');
+  const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + encodeURIComponent(apiKey);
+  const prompt = 'Bu kartviziti dikkatle oku. Yalnızca geçerli JSON döndür. Görünmeyen bilgileri uydurma, boş string kullan. Birden fazla telefon varsa / ile ayır. Alanlar tam olarak: companyName, contactName, title, phone, email, website, address, notes. Çok satırlı ünvanı anlamlı biçimde birleştir.';
+  const payload = { contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mimeType, data: base64Image } }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0.1 } };
+  const response = UrlFetchApp.fetch(endpoint, { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true });
+  const body = JSON.parse(response.getContentText() || '{}');
+  if (response.getResponseCode() < 200 || response.getResponseCode() >= 300) throw new Error((body.error && body.error.message) || 'Gemini kartı okuyamadı.');
+  const content = body.candidates && body.candidates[0] && body.candidates[0].content;
+  const raw = content && content.parts && content.parts[0] && content.parts[0].text;
+  if (!raw) throw new Error('Gemini boş sonuç döndürdü.');
+  return JSON.parse(raw.replace(/^```json\s*|\s*```$/g, '').trim());
+}
+
+function iframeResponse(requestId, result, error) {
+  const message = JSON.stringify({ source: 'cardbase-gemini', requestId: requestId, result: result, error: error || '' }).replace(/</g, '\\u003c');
+  return HtmlService.createHtmlOutput('<!doctype html><script>parent.postMessage(' + message + ', "*");<\/script>');
 }
 
 function getSheet() {

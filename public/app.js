@@ -92,27 +92,51 @@ document.querySelector('#scanButton').addEventListener('click', async event => {
   const button = event.currentTarget;
   button.disabled = true; button.textContent = 'Okunuyor…';
   try {
-    if (!window.Tesseract) throw new Error('OCR motoru yüklenemedi. İnternet bağlantınızı kontrol edin.');
     button.textContent = 'Fotoğraf hazırlanıyor…';
     const preparedImage = await prepareImageForOcr(selectedFile);
-    const worker = await Tesseract.createWorker(['tur', 'eng'], 1, {
-      logger: progress => {
-        if (progress.status === 'recognizing text') button.textContent = `Okunuyor… %${Math.round((progress.progress || 0) * 100)}`;
-      }
-    });
-    await worker.setParameters({
-      tessedit_pageseg_mode: '6',
-      preserve_interword_spaces: '1'
-    });
-    const result = await worker.recognize(preparedImage);
-    await worker.terminate();
-    const parsed = extractBusinessCard(result.data.text || '');
+    button.textContent = 'Gemini okuyor…';
+    const parsed = await sendImageToGemini(preparedImage);
     fillForm(parsed, 'Taramadan');
     notify('Bilgiler forma aktarıldı. Lütfen kontrol edin.');
   } catch (error) {
     notify(error.message, true);
   } finally { button.disabled = false; button.textContent = 'Bilgileri Oku'; }
 });
+
+async function sendImageToGemini(blob) {
+  const endpoint = String(window.APPS_SCRIPT_URL || '').trim();
+  if (!endpoint) throw new Error('Apps Script bağlantısı tanımlı değil.');
+  const base64 = await blobToBase64(blob);
+  const requestId = `ocr_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  return new Promise((resolve, reject) => {
+    const iframe = document.createElement('iframe');
+    iframe.name = requestId; iframe.hidden = true;
+    const form = document.createElement('form');
+    form.method = 'POST'; form.action = endpoint; form.target = requestId; form.hidden = true;
+    const fields = { action: 'ocr', requestId, mimeType: blob.type || 'image/jpeg', image: base64 };
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = document.createElement('input'); input.name = name; input.value = value; form.appendChild(input);
+    });
+    const cleanup = () => { window.removeEventListener('message', onMessage); iframe.remove(); form.remove(); };
+    const timer = setTimeout(() => { cleanup(); reject(new Error('Kart okuma zaman aşımına uğradı.')); }, 45000);
+    const onMessage = event => {
+      if (!event.data || event.data.source !== 'cardbase-gemini' || event.data.requestId !== requestId) return;
+      clearTimeout(timer); cleanup();
+      event.data.error ? reject(new Error(event.data.error)) : resolve(event.data.result);
+    };
+    window.addEventListener('message', onMessage);
+    document.body.append(iframe, form); form.submit();
+  });
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(new Error('Fotoğraf dönüştürülemedi.'));
+    reader.readAsDataURL(blob);
+  });
+}
 
 function prepareImageForOcr(file) {
   return new Promise((resolve, reject) => {

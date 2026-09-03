@@ -24,6 +24,17 @@ Apps Script kodunu daha sonra değiştirirseniz **Dağıt → Dağıtımları y�
 
 > Önemli: `Code.gs` değiştirildiğinde yalnızca kaydetmek yeterli değildir. Dağıtımı yeni sürümle güncellemezseniz web uygulaması eski kodu çalıştırmaya devam eder.
 
+### Gemini ile akıllı kartvizit okuma
+
+1. [Google AI Studio](https://aistudio.google.com/apikey) üzerinden ücretsiz Gemini API anahtarı oluşturun.
+2. Apps Script editöründe sol taraftaki **Proje Ayarları** bölümünü açın.
+3. **Komut dosyası özellikleri** bölümünde yeni özellik ekleyin.
+4. Özellik adına `GEMINI_API_KEY`, değerine aldığınız API anahtarını yazın ve kaydedin.
+5. Güncel `apps-script/Code.gs` dosyasını Apps Script'e yapıştırın.
+6. **Dağıt → Dağıtımları yönet → Düzenle → Yeni sürüm → Dağıt** ile yeni sürümü yayınlayın.
+
+API anahtarını `config.js`, HTML veya GitHub deposuna koymayın.
+
 ## Özellikler
 
 - Kartvizit fotoğrafı çekme veya galeriden seçme
