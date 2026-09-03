@@ -92,17 +92,37 @@ document.querySelector('#scanButton').addEventListener('click', async event => {
   const button = event.currentTarget;
   button.disabled = true; button.textContent = 'Okunuyor…';
   try {
-    const data = new FormData(); data.append('image', selectedFile);
-    const parsed = await api('/api/ocr', { method: 'POST', body: data });
-    fillForm(parsed.card || parsed, 'Taramadan');
+    if (!window.Tesseract) throw new Error('OCR motoru yüklenemedi. İnternet bağlantınızı kontrol edin.');
+    const worker = await Tesseract.createWorker(['tur', 'eng'], 1, {
+      logger: progress => {
+        if (progress.status === 'recognizing text') button.textContent = `Okunuyor… %${Math.round((progress.progress || 0) * 100)}`;
+      }
+    });
+    const result = await worker.recognize(selectedFile);
+    await worker.terminate();
+    const parsed = extractBusinessCard(result.data.text || '');
+    fillForm(parsed, 'Taramadan');
     notify('Bilgiler forma aktarıldı. Lütfen kontrol edin.');
   } catch (error) {
-    if (error.message.includes('yapılandırılmadı')) {
-      fillForm({}, 'Fotoğraftan / Manuel');
-      notify('OCR bağlı değil; bilgileri elle tamamlayabilirsiniz.', true);
-    } else notify(error.message, true);
+    notify(error.message, true);
   } finally { button.disabled = false; button.textContent = 'Bilgileri Oku'; }
 });
+
+function extractBusinessCard(rawText) {
+  const text = rawText.replace(/\r/g, '');
+  const lines = text.split('\n').map(line => line.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const email = (text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i) || [''])[0];
+  const website = (text.match(/(?:https?:\/\/|www\.)[^\s]+/i) || [''])[0].replace(/[),.;]+$/, '');
+  const phoneMatches = text.match(/(?:\+?90\s*)?(?:\(?0?5\d{2}\)?)[\s.-]*\d{3}[\s.-]*\d{2}[\s.-]*\d{2}/g) || [];
+  const ignored = new Set([email, website, ...phoneMatches].map(value => value.toLocaleLowerCase('tr-TR')));
+  const candidates = lines.filter(line => ![...ignored].some(value => value && line.toLocaleLowerCase('tr-TR').includes(value)) && line.length > 2 && line.length < 70);
+  const titlePattern = /müdür|manager|director|başkan|uzman|specialist|engineer|mühendis|satış|sales|founder|kurucu|ceo|genel müdür/i;
+  const companyPattern = /ltd|şti|a\.?ş|sanayi|ticaret|holding|group|grup|company|corp|inc|teknoloji|makina|inşaat/i;
+  const title = candidates.find(line => titlePattern.test(line)) || '';
+  const companyName = candidates.find(line => companyPattern.test(line)) || candidates[0] || '';
+  const contactName = candidates.find(line => line !== companyName && line !== title && /^[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü.'-]+(?:\s+[A-ZÇĞİÖŞÜ][A-Za-zÇĞİÖŞÜçğıöşü.'-]+){1,3}$/.test(line)) || '';
+  return { companyName, contactName, title, phone: phoneMatches[0] || '', email, website, address: '', notes: `OCR metni:\n${text.trim()}` };
+}
 
 cardForm.addEventListener('submit', async event => {
   event.preventDefault();

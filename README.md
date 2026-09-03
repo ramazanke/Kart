@@ -27,6 +27,7 @@ Apps Script kodunu daha sonra değiştirirseniz **Dağıt → Dağıtımları y�
 ## Özellikler
 
 - Kartvizit fotoğrafı çekme veya galeriden seçme
+- Türkçe ve İngilizce kartvizitleri cihaz içinde ücretsiz okuyan Tesseract.js OCR
 - Harici OCR/AI servisine bağlanabilen güvenli backend endpoint'i
 - Firma, yetkili, ünvan, telefon, e-posta, web, adres ve not alanları
 - Firma adı veya yetkili adına göre kısmi ve Türkçe büyük/küçük harf duyarsız arama
