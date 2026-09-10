@@ -59,7 +59,6 @@ function recordToRow(body, id, createdAt) {
 
 function validate(body) {
   if (!body.companyName && !body.contactName) return 'Firma adı veya yetkili kişi alanlarından biri zorunludur.';
-  if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) return 'E-posta adresi geçersiz.';
   return null;
 }
 

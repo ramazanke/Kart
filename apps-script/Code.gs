@@ -48,7 +48,7 @@ function analyzeBusinessCard(base64Image, mimeType) {
   if (!apiKey) throw new Error('GEMINI_API_KEY tanımlı değil.');
   if (!base64Image) throw new Error('Kartvizit görseli alınamadı.');
   const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=' + encodeURIComponent(apiKey);
-  const prompt = 'Bu kartviziti dikkatle oku. Yalnızca geçerli JSON döndür. Görünmeyen bilgileri uydurma, boş string kullan. Birden fazla telefon varsa / ile ayır. Alanlar tam olarak: companyName, contactName, title, phone, email, website, address, notes. Çok satırlı ünvanı anlamlı biçimde birleştir.';
+  const prompt = 'Bu kartviziti dikkatle oku. Yalnızca geçerli JSON döndür. Görünmeyen bilgileri uydurma, boş string kullan. Birden fazla telefon veya e-posta varsa hiçbirini atlama ve / ile ayır. Alanlar tam olarak: companyName, contactName, title, phone, email, website, address, notes. Çok satırlı ünvanı anlamlı biçimde birleştir.';
   const payload = { contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mimeType, data: base64Image } }] }], generationConfig: { responseMimeType: 'application/json' } };
   const response = UrlFetchApp.fetch(endpoint, { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true });
   const body = JSON.parse(response.getContentText() || '{}');
