@@ -30,8 +30,10 @@ Apps Script kodunu daha sonra değiştirirseniz **Dağıt → Dağıtımları y�
 2. Apps Script editöründe sol taraftaki **Proje Ayarları** bölümünü açın.
 3. **Komut dosyası özellikleri** bölümünde yeni özellik ekleyin.
 4. Özellik adına `GEMINI_API_KEY`, değerine aldığınız API anahtarını yazın ve kaydedin.
-5. Güncel `apps-script/Code.gs` dosyasını Apps Script'e yapıştırın.
-6. **Dağıt → Dağıtımları yönet → Düzenle → Yeni sürüm → Dağıt** ile yeni sürümü yayınlayın.
+5. Güncel `apps-script/Code.gs` dosyasını Apps Script'e yapıştırın ve kaydedin.
+6. Editörün üst kısmındaki işlev listesinden `authorizeServices` seçip **Çalıştır** düğmesine basın.
+7. Açılan Google izin ekranında hesabınızı seçip izin verin. "Google bu uygulamayı doğrulamadı" görünürse **Gelişmiş → projeye git → İzin ver** adımlarını kullanın; bu kendi oluşturduğunuz komut dosyasıdır.
+8. **Dağıt → Dağıtımları yönet → Düzenle → Yeni sürüm → Dağıt** ile yeni sürümü yayınlayın.
 
 API anahtarını `config.js`, HTML veya GitHub deposuna koymayın.
 

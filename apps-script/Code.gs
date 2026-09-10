@@ -1,6 +1,18 @@
 const SHEET_NAME = 'Kartvizitler';
 const HEADERS = ['ID', 'Kayıt Tarihi', 'Firma Adı', 'Yetkili Kişi', 'Ünvan', 'Telefon', 'E-posta', 'Web', 'Adres', 'Not'];
 
+// Kurulumdan sonra editörde bu işlevi bir kez elle çalıştırın.
+// Google Sheets ve harici Gemini isteği için gerekli izin ekranını açar.
+function authorizeServices() {
+  SpreadsheetApp.getActiveSpreadsheet().getId();
+  const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) throw new Error('Önce GEMINI_API_KEY komut dosyası özelliğini ekleyin.');
+  UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(apiKey), {
+    method: 'get', muteHttpExceptions: true
+  });
+  return 'İzinler hazır.';
+}
+
 function doGet(e) {
   try {
     const action = String((e.parameter && e.parameter.action) || 'health');
@@ -35,9 +47,9 @@ function analyzeBusinessCard(base64Image, mimeType) {
   const apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   if (!apiKey) throw new Error('GEMINI_API_KEY tanımlı değil.');
   if (!base64Image) throw new Error('Kartvizit görseli alınamadı.');
-  const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=' + encodeURIComponent(apiKey);
+  const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=' + encodeURIComponent(apiKey);
   const prompt = 'Bu kartviziti dikkatle oku. Yalnızca geçerli JSON döndür. Görünmeyen bilgileri uydurma, boş string kullan. Birden fazla telefon varsa / ile ayır. Alanlar tam olarak: companyName, contactName, title, phone, email, website, address, notes. Çok satırlı ünvanı anlamlı biçimde birleştir.';
-  const payload = { contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mimeType, data: base64Image } }] }], generationConfig: { responseMimeType: 'application/json', temperature: 0.1 } };
+  const payload = { contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mimeType, data: base64Image } }] }], generationConfig: { responseMimeType: 'application/json' } };
   const response = UrlFetchApp.fetch(endpoint, { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true });
   const body = JSON.parse(response.getContentText() || '{}');
   if (response.getResponseCode() < 200 || response.getResponseCode() >= 300) throw new Error((body.error && body.error.message) || 'Gemini kartı okuyamadı.');
@@ -50,7 +62,7 @@ function analyzeBusinessCard(base64Image, mimeType) {
 function iframeResponse(requestId, result, error) {
   const message = JSON.stringify({ source: 'cardbase-gemini', requestId: requestId, result: result, error: error || '' }).replace(/</g, '\\u003c');
   return HtmlService
-    .createHtmlOutput('<!doctype html><script>parent.postMessage(' + message + ', "*");<\/script>')
+    .createHtmlOutput('<!doctype html><script>window.top.postMessage(' + message + ', "*");<\/script>')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
